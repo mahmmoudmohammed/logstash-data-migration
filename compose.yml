@@ -1,0 +1,80 @@
+services:
+  opensearch-node1:
+    image: opensearchproject/opensearch:3.8.0
+    container_name: opensearch-node1
+    environment:
+      - cluster.name=opensearch-cluster
+      - node.name=opensearch-node1
+      - discovery.type=single-node
+      - bootstrap.memory_lock=true
+      - "OPENSEARCH_JAVA_OPTS=-Xms1g -Xmx1g"
+      - "DISABLE_SECURITY_PLUGIN=true"
+    ulimits:
+      memlock:
+        soft: -1
+        hard: -1
+      nofile:
+        soft: 65536
+        hard: 65536
+    volumes:
+      - opensearch-data1:/usr/share/opensearch/data
+    ports:
+      - 9200:9200
+      - 9600:9600
+    networks:
+      - opensearch-net
+
+  opensearch-dashboards:
+    image: opensearchproject/opensearch-dashboards:3.8.0
+    container_name: opensearch-dashboards
+    ports:
+      - 5601:5601
+    environment:
+      OPENSEARCH_HOSTS: '["http://opensearch-node1:9200"]'
+      DISABLE_SECURITY_DASHBOARDS_PLUGIN: "true"
+    networks:
+      - opensearch-net
+
+  mariadb:
+    image: mariadb:lts
+    ports:
+      - "${MYSQL_DB_PORT-3311}:3306"
+    environment:
+      - "MYSQL_ROOT_PASSWORD=${MYSQL_DB_ROOT_PASSWORD-1}"
+      - "MYSQL_USER=${APPLICATION_DB_USER-admin}"
+      - "MYSQL_PASSWORD=${APPLICATION_DB_PWD-1}"
+      - "MYSQL_DATABASE=${APPLICATION_DB_DBNAME-orders_service}"
+      - "MARIADB_ROOT_PASSWORD=${MYSQL_DB_ROOT_PASSWORD-1}"
+      - "MARIADB_USER=${APPLICATION_DB_USER-admin}"
+      - "MARIADB_PASSWORD=${APPLICATION_DB_PWD-1}"
+      - "MARIADB_DATABASE=${APPLICATION_DB_DBNAME-orders_service}"
+    volumes:
+      - mariadb:/var/lib/mysql
+    networks:
+      - opensearch-net
+
+  logstash:
+    build: ./logstash
+    volumes:
+      - ./logstash/config/logstash.yml:/usr/share/logstash/config/logstash.yml:ro
+      - ./logstash/pipelines.yml:/usr/share/logstash/config/pipelines.yml:ro
+      - ./logstash/conf.d:/etc/logstash/conf.d:ro
+      - logstash-sync-state:/usr/share/logstash/sync_state
+      - logstash-queue-data:/usr/share/logstash/data
+    environment:
+      - LS_JAVA_OPTS=-Xms1g -Xmx1g
+    depends_on:
+      - opensearch-node1
+      - mariadb
+    networks:
+      - opensearch-net
+
+volumes:
+  opensearch-data1:
+  logstash-queue-data:
+  mariadb:
+  logstash-sync-state:
+
+
+networks:
+  opensearch-net:
