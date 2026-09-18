@@ -1,0 +1,4 @@
+- pipeline.id: orders_migration
+  path.config: "/etc/logstash/conf.d/orders.logstash.conf"
+  pipeline.workers: 4
+  pipeline.batch.size: 100
